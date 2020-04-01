@@ -1,0 +1,60 @@
+version: '3'
+services:
+  elastic:
+    image: "elasticsearch:7.6.0"
+    networks:
+      - overlay
+      - traefik-net
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.monitoring.enabled=false
+      - xpack.graph.enabled=false
+      - xpack.watcher.enabled=false
+    volumes:
+      - elasticsearch-persistant:/usr/share/elasticsearch/data
+    deploy:
+      replicas: 1
+      labels:
+        traefik.enable: "true"
+        traefik.http.services.simple-elastic.loadbalancer.server.port: "9300"
+
+        traefik.http.routers.simple-elastic.entrypoints: web-secure
+        traefik.http.routers.simple-elastic.rule: "Host(`elastic.graphs.epickiwi.fr`)"
+        traefik.http.routers.simple-elastic.tls.certresolver: letsencrypt
+
+        traefik.http.routers.simple-elastic-insecure.entrypoints: web
+        traefik.http.routers.simple-elastic-insecure.rule: "Host(`elastic.graphs.epickiwi.fr`)"
+        traefik.http.routers.simple-elastic-insecure.middlewares: force-https@file
+
+  kibana:
+    image: kibana:7.6.1
+    depends_on:
+      - elastic
+    networks:
+      - overlay
+      - traefik-net
+    environment:
+      SERVER_NAME: graphs.epickiwi.fr
+      ELASTICSEARCH_HOSTS: http://elastic:9200/
+    deploy:
+      replicas: 1
+      labels:
+        traefik.enable: "true"
+        traefik.http.services.simple-elastic.loadbalancer.server.port: "5601"
+
+        traefik.http.routers.simple-elastic.entrypoints: web-secure
+        traefik.http.routers.simple-elastic.rule: "Host(`graphs.epickiwi.fr`)"
+        traefik.http.routers.simple-elastic.tls.certresolver: letsencrypt
+
+        traefik.http.routers.simple-elastic-insecure.entrypoints: web
+        traefik.http.routers.simple-elastic-insecure.rule: "Host(`graphs.epickiwi.fr`)"
+        traefik.http.routers.simple-elastic-insecure.middlewares: force-https@file
+
+volumes:
+  elasticsearch-persistant:
+
+networks:
+  overlay:
+  traefik-net:
+    external: true
